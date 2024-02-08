@@ -1,40 +1,15 @@
-use sha1::Digest;
-use std::{
-    env,
-    error::Error,
-    fs::File,
-    io::{BufRead, BufReader},
-};
+use std::{error::Error, io::BufReader};
 
-const SHA1_HEX_STRING_LENGTH: usize = 40;
+use sha1_cracker::{parse_arguments, read_wordlist};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = env::args().collect();
+    let (wordlist_path, hash_to_crack) = parse_arguments()?;
+    let wordlist_file = read_wordlist(&wordlist_path)?;
 
-    if args.len() != 3 {
-        println!("Usage:");
-        println!("sha1_cracker <wordlist.txt> <sha1_hash>");
-        return Ok(());
+    match sha1_cracker::crack_sha1_hash(&hash_to_crack, &mut BufReader::new(wordlist_file)) {
+        Some(password) => println!("Password found: {}", password),
+        None => println!("Password not found in wordlist"),
     }
-
-    let hash_to_crack = args[2].trim();
-    if hash_to_crack.len() != SHA1_HEX_STRING_LENGTH {
-        return Err("sha1 hash has no valid characters".into());
-    }
-
-    let wordlist_file = File::open(&args[1])?;
-    let reader = BufReader::new(wordlist_file);
-
-    for line in reader.lines() {
-        let line = line?;
-        let common_password = line.trim();
-        if hash_to_crack == &hex::encode(sha1::Sha1::digest(common_password.as_bytes())) {
-            println!("Password found: {}", &common_password);
-            return Ok(());
-        }
-    }
-
-    println!("Password not found in wordlist");
 
     Ok(())
 }
